@@ -7,15 +7,14 @@ import math
 from scipy.signal.windows import hamming
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 
-# Page Config
+# App Config
 st.set_page_config(page_title="Speech & Music Analyzer", page_icon="🎵", layout="wide")
-st.title("🎵 Real-Time Speech & Music Analyzer (Web Version)")
+st.title("🎵 Real-Time Speech & Music Analyzer")
+st.markdown("Speak or play music into your mic, then click **Analyze Audio**.")
 
 fs = 44100  # Sampling rate
 
-# -------------------------------
-# Audio Processor
-# -------------------------------
+# Audio Processor Class
 class AudioProcessor(AudioProcessorBase):
     def __init__(self):
         self.audio_frames = []
@@ -25,15 +24,11 @@ class AudioProcessor(AudioProcessorBase):
         self.audio_frames.extend(audio_array)
         return frame
 
-# -------------------------------
 # DSP Functions
-# -------------------------------
 def plot_waveform(audio):
     fig, ax = plt.subplots()
     ax.plot(audio, color="purple")
     ax.set_title("Waveform")
-    ax.set_xlabel("Samples")
-    ax.set_ylabel("Amplitude")
     st.pyplot(fig)
 
 def plot_spectrogram(audio):
@@ -56,8 +51,7 @@ def hz_to_note(freq):
     A4 = 440
     semitones = 12 * math.log2(freq / A4)
     note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-    note_num = int(round(semitones)) % 12
-    return note_names[note_num]
+    return note_names[int(round(semitones)) % 12]
 
 def get_formants(audio):
     audio = np.append(audio, np.zeros(512))
@@ -77,9 +71,7 @@ def classify_audio(audio):
     centroid = np.mean(librosa.feature.spectral_centroid(y=audio, sr=fs))
     return "Music" if zcr > 0.1 and centroid > 2000 else "Speech"
 
-# -------------------------------
-# WebRTC Stream
-# -------------------------------
+# WebRTC
 ctx = webrtc_streamer(
     key="audio",
     mode=WebRtcMode.SENDRECV,
@@ -87,11 +79,12 @@ ctx = webrtc_streamer(
     media_stream_constraints={"audio": True, "video": False},
 )
 
+# UI Controls
 if ctx.audio_processor:
     if st.button("📊 Analyze Audio"):
         audio_data = np.array(ctx.audio_processor.audio_frames)
 
-        if len(audio_data) > 0:
+        if len(audio_data) > fs:  # at least 1 second of audio
             st.audio(audio_data, sample_rate=fs)
 
             col1, col2 = st.columns(2)
@@ -104,8 +97,6 @@ if ctx.audio_processor:
             st.write(f"**Pitch:** {pitch:.2f} Hz")
             st.write(f"**Note:** {hz_to_note(pitch)}")
             st.write(f"**Type Detected:** {classify_audio(audio_data)}")
-
-            formants = get_formants(audio_data)
-            st.write(f"**Formants (Hz):** {np.round(formants, 2)}")
+            st.write(f"**Formants (Hz):** {np.round(get_formants(audio_data), 2)}")
         else:
-            st.warning("No audio captured yet. Please speak or play music before analyzing.")
+            st.warning("No audio captured. Speak or play for a few seconds before clicking Analyze.")
