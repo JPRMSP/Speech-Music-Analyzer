@@ -4,7 +4,7 @@ import librosa
 import librosa.display
 import matplotlib.pyplot as plt
 import math
-from scipy.signal import hamming
+from scipy.signal.windows import hamming
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 
 # Page Config
